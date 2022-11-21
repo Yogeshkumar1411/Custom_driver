@@ -10,13 +10,19 @@
 #undef pr_fmt 
 #define pr_fmt(fmt) "%s:" fmt,__func__
 
-/*pseudo device's memory*/
+/*
+ * pseudo device's memory
+ * */
 char device_buffer[DEV_MEM_SIZE];
 
-/*This holds the device number*/
+/*
+ * This holds the device number
+ * */
 dev_t device_number;
 
-/* Cdev variable */
+/* 
+ * Cdev variable 
+ * */
 struct cdev pcd_cdev;
 
 
@@ -31,8 +37,32 @@ loff_t pcd_lseek(struct file *filp, loff_t off, int whence)
 ssize_t pcd_read(struct file *filp, char __user *buff, size_t count, loff_t *f_pos)
 {
 	pr_info("read requested for %zu bytes \n",count);
+	pr_info("current file position = %lld\n",*f_pos);
 
-        return 0;
+	/*
+	 * Adjust the 'count'
+	 * */
+	if((*f_pos +count)>DEV_MEM_SIZE)
+		count = DEV_MEM_SIZE - *f_ops;
+
+	/*
+	 * copy to user
+	 * */
+	if(copy_to_user(buff,device_buffer[*f_pos],count)){
+		return -EFAULT;
+	}
+	/*
+	 * update the current file position
+	 * */
+	*f_pos+=count;
+
+	pr_info("Number of bytes successfully read = %zu\n",count);
+	pr_info("Updated file position = %lld\n",*f_pos);
+
+	/*
+	 * return number of bytes which have been successfully read
+	 * */
+        return count;
 }
 ssize_t pcd_write(struct file *filp, const char __user *buff, size_t count, loff_t *f_pos)
 {
