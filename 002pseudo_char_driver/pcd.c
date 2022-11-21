@@ -3,7 +3,7 @@
 #include<linux/fs.h>
 #include<linux/cdev.h>
 #include<linux/device.h>
-#include<linux/k_dev_t.h>
+#include<linux/kdev_t.h>
 
 #define DEV_MEM_SIZE 512  // limit of this driver
 
@@ -65,7 +65,7 @@ struct file_operations pcd_fops =
 	.open = pcd_open,
 	.write = pcd_write,
 	.read = pcd_read,
-	.close = pcd_release,
+	.release = pcd_release,
 	.llseek = pcd_lseek,
 	.owner = THIS_MODULE
 };
@@ -99,13 +99,20 @@ static int __init pcd_driver_init(void){
 	device_pcd = device_create(class_pcd,NULL,device_number,NULL,"pcd");
 
 
-	pr_info?("Module init was successful\n");
+	pr_info("Module init was successful\n");
 
 
 	return 0;
 }
 
 static void __exit pcd_driver_cleanup(void){
+	
+	device_destroy(class_pcd,device_number);
+	class_destroy(class_pcd);
+	cdev_del(&pcd_cdev);
+	unregister_chrdev_region(device_number,1);
+
+	pr_info("Module unloaded\n");
 
 }
 
