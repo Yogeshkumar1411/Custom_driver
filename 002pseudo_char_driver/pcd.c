@@ -29,11 +29,38 @@ struct cdev pcd_cdev;
 
 
 
-loff_t pcd_lseek(struct file *filp, loff_t off, int whence)
+loff_t pcd_lseek(struct file *filp, loff_t offset, int whence)
 {
+	loff_t temp;
 	pr_info("lseek requested\n");
+	pr_info("current value of the file position = %lld\n",filp->f_pos);
 
-        return 0;
+	switch(whence)
+	{
+		case SEEK_SET:
+			if((offset > DEV_MEM_SIZE) || (offset < 0))
+				return -EINVAL;
+			filp->f_pos = offset;
+			break;
+		case SEEK_CUR:
+			temp = filp->f_pos + offset;
+			if((temp > DEV_MEM_SIZE) || (temp < 0))
+				return -EINVAL;
+			filp->f_pos = temp;
+			break;
+		case SEEK_END:
+			temp = DEV_MEM_SIZE + offset;
+			if((temp > DEV_MEM_SIZE) || (temp < 0))
+				return -EINVAL;
+
+			filp->f_pos = temp;
+			break;
+		default:
+			return -EINVAL;
+	}
+
+	pr_info("New value  of the file position = %lld\n",filp->f_pos);
+        return filp->f_pos;
 }
 ssize_t pcd_read(struct file *filp, char __user *buff, size_t count, loff_t *f_pos)
 {
