@@ -1,0 +1,10 @@
+[14848.724551] pcd_open:open was successful
+[14848.724583] pcd_read:read requested for 131072 bytes 
+[14848.724588] pcd_read:current file position = 0
+[14848.724594] pcd_read:Number of bytes successfully read = 512
+[14848.724597] pcd_read:Updated file position = 512
+[14848.724625] pcd_read:read requested for 131072 bytes 
+[14848.724627] pcd_read:current file position = 512
+[14848.724629] pcd_read:Number of bytes successfully read = 0
+[14848.724631] pcd_read:Updated file position = 512
+[14848.724655] pcd_release:release was successful
