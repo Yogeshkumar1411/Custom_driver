@@ -68,16 +68,16 @@ struct pcdrv_private_data pcdrv_data =
                 },
                 [2] = {
                         /*device elements*/
-                        .buffer = device_buffer_pcdev1,
-                        .size = MEM_SIZE_MAX_PCDEV1,
-                        .serial_number = "pcdev1xyz123",
+                        .buffer = device_buffer_pcdev3,
+                        .size = MEM_SIZE_MAX_PCDEV3,
+                        .serial_number = "pcdev3xyz123",
                         .perm = 0x11 //RDWR,
                 },
                 [3] = {
                         /*device elements*/
-                        .buffer = device_buffer_pcdev1,
-                        .size = MEM_SIZE_MAX_PCDEV1,
-                        .serial_number = "pcdev1xyz123",
+                        .buffer = device_buffer_pcdev4,
+                        .size = MEM_SIZE_MAX_PCDEV4,
+                        .serial_number = "pcdev4xyz123",
                         .perm = 0x11 //RDWR,
                 }
 	}
@@ -221,60 +221,67 @@ struct class *class_pcd;
 struct device *device_pcd;
 
 static int __init pcd_init(void){
-#if 0
 
-	int ret;
+	int ret,i;
 	/*
-	 * 1. Allocating device number*/
-	ret = alloc_chrdev_region(&device_number,0,4,"pcd_multiple");
-	pr_info("Device number <major>:<minor> = %d:%d\n",MAJOR(device_number),MINOR(device_number));
+	 * 1. Dynamically allocating device numbers*/
+	ret = alloc_chrdev_region(&pcdrv_data.device_number,0,NO_OF_DEVICES,"pcd_devices");
 	if(ret < 0)
 	{
 		pr_err("Alloc chrdev failed\n");
 		goto out;
 	}
+
+	        
+        /* Class create
+	 * creating device class under /sys/class
+	 * This shouldn't be in loop
+         */
+
+        pcdrv_data.class_pcd = class_create(THIS_MODULE,"pcd_multiple_class");
+
+        /*class_create returns pointer. So while failing-
+         * it will returns pointer to negative value. So the macro-
+         * IS_ERR is used
+         */
+        if(IS_ERR(pcdrv_data.class_pcd))
+        {
+                pr_err("Class creation failed\n");
+                /*
+                 * PTR_ERR() converts pointer to error code(int)
+                 * ERR_PTR() converts error code(int) to pointer
+                 */
+                ret = PTR_ERR(pcdrv_data.class_pcd);
+                goto unreg_chrdev;
+        }
+
+	for(i=0;i<NO_OF_DEVICES;i++)
+	{
+		pr_info("Device number <major>:<minor> = %d:%d\n",MAJOR(pcdrv_data.device_number+i),MINOR(pcdrv_data.device_number+i));
 	
-	/*2. cdev initializaion*/
-	cdev_init(&pcd_cdev,&pcd_fops);
 
-	/*3. Registering the cdev in VFS*/
-	pcd_cdev.owner=THIS_MODULE;
-	ret = cdev_add(&pcd_cdev,device_number,4);
-	if(ret < 0)
-	{
-		pr_err("cdev_add failed\n");
-		goto unreg_chrdev;
-	}
+		/* cdev initializaion*/
+		cdev_init(&pcdrv_data.pcdev_data[i].cdev,&pcd_fops);
 
-	/* 4. Creating device files
-	 * */
-	/* creating device class under /sys/class
-	 */
-	class_pcd = class_create(THIS_MODULE,"pcd_multiple_class");
+		/*Registering the cdev in VFS*/
+		pcdrv_data.pcdev_data[i].cdev.owner=THIS_MODULE;
+		ret = cdev_add(&pcdrv_data.pcdev_data[i].cdev,pcdrv_data.device_number+i,1);
+		if(ret < 0)
+		{
+			pr_err("cdev_add failed\n");
+			goto cdev_del;
+		}
 
-	/*class_create returns pointer. So while failing-
-	 * it will returns pointer to negative value. So the macro-
-	 * IS_ERR is used
-	 */
-	if(IS_ERR(class_pcd))
-	{
-		pr_err("Class creation failed\n");
 		/*
-		 * PTR_ERR() converts pointer to error code(int)
-		 * ERR_PTR() converts error code(int) to pointer
+		 * Populate the sysfs with device information
 		 */
-		ret = PTR_ERR(class_pcd);
-		goto cdev_del;
-	}
-	/*
-	 * Populate the sysfs with device information
-	 */
-	device_pcd = device_create(class_pcd,NULL,device_number,NULL,"pcd_multiple");
-	if(IS_ERR(device_pcd))
-	{
-		pr_err("Device create failed\n");
-		ret = PTR_ERR(device_pcd);
-		goto class_del;
+		pcdrv_data.device_pcd = device_create(pcdrv_data.class_pcd,NULL,pcdrv_data.device_number+i,NULL,"pcdev-%d",i);//formatted string,																           every device has 																	different name, so 																mentioning the deveice																	 name with i
+		if(IS_ERR(pcdrv_data.device_pcd))
+		{
+			pr_err("Device create failed\n");
+			ret = PTR_ERR(pcdrv_data.device_pcd);
+			goto class_del;
+		}
 	}
 
 	pr_info("Module init loaded\n");
@@ -282,34 +289,40 @@ static int __init pcd_init(void){
 
 	return 0;
 
-class_del:
-	class_destroy(class_pcd);
-
 cdev_del:
-	cdev_del(&pcd_cdev);
+class_del:
+	for(;i>=0;i--)
+	{
+		device_destroy(pcdrv_data.class_pcd,pcdrv_data.device_number+i);
+		cdev_del(&pcdrv_data.pcdev_data[i].cdev);
+	}
+	class_destroy(pcdrv_data.class_pcd);
+
+
 
 unreg_chrdev:
-	unregister_chrdev_region(device_number,4);
+	unregister_chrdev_region(pcdrv_data.device_number,NO_OF_DEVICES);
 
 out:
 	pr_info("Module insertion failed\n");
 	return ret;
-#endif
-	return 0;
 
 }
 
 
 static void __exit pcd_cleanup(void){
-#if 0
+	int i;
+       for(i=0;i<NO_OF_DEVICES;i++)
+        {
+                device_destroy(pcdrv_data.class_pcd,pcdrv_data.device_number+i);
+                cdev_del(&pcdrv_data.pcdev_data[i].cdev);
+        }
+        class_destroy(pcdrv_data.class_pcd);
 
-	device_destroy(class_pcd,device_number);
-	class_destroy(class_pcd);
-	cdev_del(&pcd_cdev);
-	unregister_chrdev_region(device_number,4);
+	unregister_chrdev_region(pcdrv_data.device_number,NO_OF_DEVICES);
 
 	pr_info("Module unloaded\n");
-#endif
+
 }
 
 
