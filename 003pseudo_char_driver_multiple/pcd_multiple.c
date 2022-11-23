@@ -156,7 +156,7 @@ ssize_t pcd_read(struct file *pcd_filp,char __user *pcd_buffer,size_t count,loff
 		count = max_size - *f_pos;
 	
 	/*copy to user*/
-	if(copy_to_user(&pcd_buffer,pcdev_data->buffer+(*f_pos),count))
+	if(copy_to_user(pcd_buffer,pcdev_data->buffer+(*f_pos),count))
 	{
 		return -EFAULT;
 	}
@@ -196,8 +196,9 @@ ssize_t pcd_write(struct file *pcd_filp,const char __user *pcd_buffer,size_t cou
 	}
 
 	/*copy from user*/
-	if(copy_from_user(pcdev_data->buffer+(*f_pos),&pcd_buffer,count))
+	if(copy_from_user(pcdev_data->buffer+(*f_pos),pcd_buffer,count))
 	{
+
 		return -EFAULT;
 	}
 
