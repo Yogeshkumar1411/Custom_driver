@@ -204,28 +204,30 @@ ssize_t pcd_write(struct file *pcd_filp,const char __user *pcd_buffer,size_t cou
 }
 loff_t pcd_lseek(struct file *pcd_filp,loff_t offset,int whence)
 {
-#if 0
+	struct pcdev_private_data *pcdev_data = (struct pcdev_private_data*)(pcd_filp->private_data);
+	int max_size = pcdev_data->size;
+
 	loff_t temp;
 	pr_info("lseek requested\n");
 	pr_info("Current value of the file position = %lld\n",pcd_filp->f_pos);
 	switch(whence)
 	{
 		case SEEK_SET:
-			if((offset > DEV_MEM_SIZE) || (offset < 0))
+			if((offset > max_size) || (offset < 0))
 				return -EINVAL;
 			pcd_filp->f_pos = offset;
 			break;
 
 		case SEEK_CUR:
 			temp = pcd_filp->f_pos + offset;
-			if((temp > DEV_MEM_SIZE) || (temp < 0))
+			if((temp > max_size) || (temp < 0))
 				return -EINVAL;
 			pcd_filp->f_pos = temp;
 			break;
 
 		case SEEK_END:
-			temp = DEV_MEM_SIZE + offset;
-			if((temp > DEV_MEM_SIZE) || (temp < 0))
+			temp = max_size + offset;
+			if((temp > max_size) || (temp < 0))
 				return -EINVAL;
 			pcd_filp->f_pos = temp;
 			break;
@@ -236,8 +238,6 @@ loff_t pcd_lseek(struct file *pcd_filp,loff_t offset,int whence)
 
 	pr_info("New value of the file position = %lld\n",pcd_filp->f_pos);
 	return pcd_filp->f_pos;
-#endif
-	return 0;
 }
 
 
