@@ -83,13 +83,42 @@ struct pcdrv_private_data pcdrv_data =
 	}
 };
 
+/*for the time being check_permission return 0*/
+
+int check_permission(void)
+{
+	return 0;
+}
 
 
 int pcd_open(struct inode *pcd_inode,struct file *pcd_filp)
 {
-	pr_info("Open was successful\n");
+	int ret;
 
-	return 0;
+	int minor_n;
+
+	struct pcdev_private_data *pcdev_data;
+
+	/*Find out which device filem open was attempted by the userspace*/
+	minor_n = MINOR(pcd_inode->i_rdev);
+	pr_info("Minor access = %d\n",minor_n);
+
+
+	/*get the device's private data structure*/
+	pcdev_data = container_of(pcd_inode->i_cdev,struct pcdev_private_data,cdev);
+
+
+	/*to supply device private data to other methods of the driver*/
+	pcd_filp->private_data = pcdev_data;
+
+	/*check permission*/
+	ret=check_permission();
+
+
+	(!ret)?pr_info("Open was successful\n"):pr_info("Open was unsuccessful\n");
+
+
+	return ret;
 }
 
 int pcd_release(struct inode *pcd_inode,struct file *pcd_filp)
