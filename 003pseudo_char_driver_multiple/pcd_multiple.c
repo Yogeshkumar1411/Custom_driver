@@ -46,6 +46,9 @@ struct pcdrv_private_data
 	struct pcdev_private_data pcdev_data[NO_OF_DEVICES];
 };
 
+#define RDONLY 0X01
+#define WRONLY 0X10
+#define RDWR 0X11
 
 /* initializing the pcdrv_private_data structure*/
 struct pcdrv_private_data pcdrv_data = 
@@ -57,37 +60,44 @@ struct pcdrv_private_data pcdrv_data =
 			.buffer = device_buffer_pcdev1,
 			.size = MEM_SIZE_MAX_PCDEV1,
 			.serial_number = "pcdev1xyz123",
-			.perm = 0x1 //RDONLY,
+			.perm = RDONLY //RDONLY
 		},
                 [1] = {
                         /*device elements*/
                         .buffer = device_buffer_pcdev2,
                         .size = MEM_SIZE_MAX_PCDEV2,
                         .serial_number = "pcdev2xyz123",
-                        .perm = 0x10 //WRONLY,
+                        .perm = WRONLY //WRONLY
                 },
                 [2] = {
                         /*device elements*/
                         .buffer = device_buffer_pcdev3,
                         .size = MEM_SIZE_MAX_PCDEV3,
                         .serial_number = "pcdev3xyz123",
-                        .perm = 0x11 //RDWR,
+                        .perm = RDWR //RDWR
                 },
                 [3] = {
                         /*device elements*/
                         .buffer = device_buffer_pcdev4,
                         .size = MEM_SIZE_MAX_PCDEV4,
                         .serial_number = "pcdev4xyz123",
-                        .perm = 0x11 //RDWR,
+                        .perm = RDWR //RDWR
                 }
 	}
 };
 
+
 /*for the time being check_permission return 0*/
 
-int check_permission(void)
+int check_permission(int dev_perm,int access_mode)
 {
-	return 0;
+	if(dev_perm == RDWR)
+		return 0;
+	if( (dev_perm == RDONLY) && ( (access_mode & FMODE_READ) && !(access_mode & FMODE_WRITE) ) )
+		return 0;
+	if( (dev_perm == WRONLY) && ( (access_mode & FMODE_WRITE) && !(access_mode & FMODE_READ) ) )
+		return 0;
+	return -EPERM;
 }
 
 
@@ -112,7 +122,7 @@ int pcd_open(struct inode *pcd_inode,struct file *pcd_filp)
 	pcd_filp->private_data = pcdev_data;
 
 	/*check permission*/
-	ret=check_permission();
+	ret=check_permission(pcdev_data->perm,pcd_filp->f_mode);
 
 
 	(!ret)?pr_info("Open was successful\n"):pr_info("Open was unsuccessful\n");
