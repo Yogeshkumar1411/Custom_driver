@@ -130,17 +130,23 @@ int pcd_release(struct inode *pcd_inode,struct file *pcd_filp)
 
 ssize_t pcd_read(struct file *pcd_filp,char __user *pcd_buffer,size_t count,loff_t *f_pos)
 {
-#if 0
+
+	struct pcdev_private_data *pcdev_data = (struct pcdev_private_data*)pcd_filp->private_data;
+
+	int max_size = pcdev_data->size;
+
 	pr_info("read requested for %zu bytes \n",count);
 	pr_info("Current file position = %lld\n",*f_pos);
 	
+
+
 	/*
 	 * Adjust the count*/
-	if((*f_pos+count)>DEV_MEM_SIZE)
-		count = DEV_MEM_SIZE - *f_pos;
+	if((*f_pos+count) > max_size)
+		count = max_size - *f_pos;
 	
 	/*copy to user*/
-	if(copy_to_user(&pcd_buffer,&device_buffer[*f_pos],count))
+	if(copy_to_user(&pcd_buffer,pcdev_data->buffer+(*f_pos),count))
 	{
 		return -EFAULT;
 	}
@@ -156,19 +162,23 @@ ssize_t pcd_read(struct file *pcd_filp,char __user *pcd_buffer,size_t count,loff
 	 * return number of bytes successfully read
 	 * */
 	return count;
-#endif
-	return 0;
+
+
 }
 ssize_t pcd_write(struct file *pcd_filp,const char __user *pcd_buffer,size_t count,loff_t *f_pos)
 {
-#if 0
+
+	struct pcdev_private_data *pcdev_data = (struct pcdev_private_data*)(pcd_filp->private_data);
+
+	int max_size = pcdev_data->size;
+
 	pr_info("Write requested for %zu bytes\n",count);
 	pr_info("Current file position = %lld\n",*f_pos);
 
 	/*
 	 * Adjust the count*/
-	if((*f_pos+count)>DEV_MEM_SIZE)
-		count = DEV_MEM_SIZE - *f_pos;
+	if((*f_pos+count)>max_size)
+		count = max_size - *f_pos;
 	if(!count)
 	{
 		pr_err("No space left on the device\n");
@@ -176,7 +186,7 @@ ssize_t pcd_write(struct file *pcd_filp,const char __user *pcd_buffer,size_t cou
 	}
 
 	/*copy from user*/
-	if(copy_from_user(&device_buffer[*f_pos],&pcd_buffer,count))
+	if(copy_from_user(pcdev_data->buffer+(*f_pos),&pcd_buffer,count))
 	{
 		return -EFAULT;
 	}
@@ -191,8 +201,6 @@ ssize_t pcd_write(struct file *pcd_filp,const char __user *pcd_buffer,size_t cou
 	 * Return number of bytes which have been successfully written
 	 * */
 	return count;
-#endif 
-	return 0;
 }
 loff_t pcd_lseek(struct file *pcd_filp,loff_t offset,int whence)
 {
