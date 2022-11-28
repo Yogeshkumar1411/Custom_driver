@@ -1,4 +1,4 @@
-obj-m := pcd_device_setup.o
+obj-m := pcd_device_setup.o pcd_platform_driver.o
 
 KDIR = /home/yogesh/Documents/yogesh/workspace/ldd/source/linux
 
