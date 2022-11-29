@@ -1,4 +1,5 @@
 #include<linux/module.h>
+#include<linux/init.h>
 #include<linux/fs.h>
 #include<linux/device.h>
 #include<linux/platform_device.h>
@@ -99,12 +100,21 @@ struct file_operations pcd_fops = {
 /*gets called when the device is removed from the system*/
 int pcd_platform_driver_remove(struct platform_device *pdev)
 {
-	/*1. Remove a device that was created wih device_create*/
+	/*Removing all the allocated memories in probe function we can get the by extracting pdev->dev->driver_data, which is we saved in probe function*/
+	
+	struct pcdev_private_data *dev_data = dev_get_drvdata(&pdev->dev);	 
+
+	/*1. Remove a device that was created with device_create()*/
+	device_destroy(pcdrv_data.class_pcd,dev_data->dev_num);
 
 	/*2. Remove a cdev entry from the system*/
+	cdev_del(&dev_data->cdev);
 
 	/*3. Free the memory held by the device*/
+	kfree(dev_data->buffer);
+	kfree(dev_data);
 	
+	pcdrv_data.total_devices--;
 
 	pr_info("A device is removed\n");
 	return 0;
@@ -117,8 +127,8 @@ int pcd_platform_driver_probe(struct platform_device *pdev)
 
 	/*in this function we will use driver private data sturcture, for that we have declared the variable globally. In 1st step we will get the
 	 * information of device details which had been done in 'pcd_device_setup.c' file. There we have registered the device details, so it will
-	 *  fetched into the 'platform_device' structure in the field of 'dev'. And then by exracting the that dev field we will get the information
-	 *  of devices*/
+	 *  fetched into the 'platform_device' structure in the field of 'dev' and in that we will have '*platform_data field', which will have the 
+	 *  information of devive. And then by exracting the that dev field we will get the information of devices*/
 
 	int ret;
 	struct pcdev_private_data *dev_data;
@@ -127,7 +137,7 @@ int pcd_platform_driver_probe(struct platform_device *pdev)
 
 	pr_info("A device is detected\n");
 
-        /*1. Get the platform data (extracting)
+        /*1. Get the platform data (extracting) and storing in pdata
 	 * pdata = pdev->dev.plaform_data;
 	 * another method of extracting below 
 	 * And, it returns void pointer and need to typecast  */
@@ -145,6 +155,10 @@ int pcd_platform_driver_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto out;
 	}
+
+	/*Save the device private data pointer in platform device structure for remove function*/
+
+	dev_set_drvdata(&pdev->dev,dev_data);
 
 	dev_data->pdata.size = pdata->size;
 	dev_data->pdata.perm = pdata->perm;
@@ -184,7 +198,7 @@ int pcd_platform_driver_probe(struct platform_device *pdev)
 	}
 
 
-	
+	pcdrv_data.total_devices++;
 	pr_info("The probe was successful\n");
 	
 	return 0;
