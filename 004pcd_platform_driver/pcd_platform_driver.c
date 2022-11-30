@@ -5,7 +5,7 @@
 #include<linux/platform_device.h>
 #include<linux/slab.h>
 #include<linux/cdev.h>
-
+#include<linux/mod_devicetable.h>
 
 #include"platform.h"
 
@@ -13,6 +13,41 @@
 
 #undef pr_fmt
 #define pr_fmt(fmt) "%s : " fmt,__func__
+
+/*User creation of configuration items for different versions of devices*/
+struct device_config
+{
+        int config_item1;
+        int config_item2;
+};
+
+enum pcdev_names
+{
+        PCDEVA1X,
+        PCDEVB1X,
+        PCDEVC1X,
+        PCDEVD1X
+};
+
+struct device_config pcdev_config[] = {
+        [PCDEVA1X] = {
+                .config_item1 = 60,
+                .config_item2 = 21
+        },
+        [PCDEVB1X] = {
+                .config_item1 = 50,
+                .config_item2 = 20
+        },
+        [PCDEVC1X] = {
+                .config_item1 = 60,
+                .config_item2 = 19
+        },
+        [PCDEVD1X] = {
+                .config_item1 = 70,
+                .config_item2 = 18
+        }
+};
+
 
 
 /*Device private data strucure*/
@@ -169,6 +204,11 @@ int pcd_platform_driver_probe(struct platform_device *pdev)
 	pr_info("Device size = %d\n",dev_data->pdata.size);
 	pr_info("Device permission = %d\n",dev_data->pdata.perm);
 
+	/*printing the configuretion items*/
+
+	pr_info("Config item 1 = %d\n",pcdev_config[pdev->id_entry->driver_data].config_item1);
+	pr_info("Config item 2 = %d\n",pcdev_config[pdev->id_entry->driver_data].config_item2);
+
         /*3. Dynamically allocate memory for the device buffer using size
  information form the platform data*/
 	dev_data->buffer = devm_kzalloc(&pdev->dev,dev_data->pdata.size,GFP_KERNEL);//added devm_kzalloc()
@@ -217,11 +257,68 @@ out:
 	pr_info("Device probe failed\n");
 	return ret;
 }
+/*
+struct device_config
+{
+	int config_item1;
+	int config_item2;
+};
+
+enum pcdev_names
+{
+	PCDEVA1X,
+	PCDEVB1X,
+	PCDEVC1X,
+	PCDEVD1X
+};
+
+struct device_config pcdev_config[] = {
+	[PCDEVA1X] = {
+		.config_item1 = 60,
+		.config_item2 = 21
+	},
+	[PCDEVB1X] = {
+		.config_item1 = 50,
+		.config_item2 = 20
+	},
+	[PCDEVC1X] = {
+		.config_item1 = 60,
+		.config_item2 = 19
+	},
+	[PCDEVD1X] = {
+		.config_item1 = 70,
+		.config_item2 = 18
+	}
+};*/
+
+/* in platform_driver structure we are having the 'id_table' field type of 'struct platform_device_id' and in that type structure we are having 
+ * 'name and driver_data field' by using the 'name' we are doing id matching and with that 'driver_data' we are implementing the configuration
+ * details of different versions of devices*/
+struct platform_device_id pcdevs_id[] = {
+	[0] = {
+		.name = "pcdev-A1x",
+		.driver_data = PCDEVA1X
+	},
+	[1] = {
+		.name = "pcdev-B1x",
+		.driver_data = PCDEVB1X
+	},
+	[2] = {
+		.name = "pcdev-C1x",
+		.driver_data = PCDEVC1X
+	},
+	[3] = {
+		.name = "pcdev-D1x",
+		.driver_data = PCDEVD1X
+	}
+};
 
 struct platform_driver pcd_platform_driver = {
 	.probe = pcd_platform_driver_probe,
 	.remove = pcd_platform_driver_remove,
+	.id_table = pcdevs_id,//initiating the id table field
 	.driver = {
+		/*when we used id means the name matching will no longer used*/
 		.name = "pseudo-char-device"
 	}
 
