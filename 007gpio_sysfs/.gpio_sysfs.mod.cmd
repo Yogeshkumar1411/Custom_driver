@@ -1,0 +1,1 @@
+cmd_/home/yogesh/Documents/yogesh/workspace/ldd/custom_drivers/Custom_driver/007gpio_sysfs/gpio_sysfs.mod := { echo  /home/yogesh/Documents/yogesh/workspace/ldd/custom_drivers/Custom_driver/007gpio_sysfs/gpio_sysfs.o;  echo; } > /home/yogesh/Documents/yogesh/workspace/ldd/custom_drivers/Custom_driver/007gpio_sysfs/gpio_sysfs.mod
