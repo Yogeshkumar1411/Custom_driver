@@ -1,0 +1,205 @@
+SpinLock
+
+	In the Mutex concept, when the thread is trying to lock or acquire the Mutex which is not available then that thread will go to sleep until that Mutex is available. Whereas in Spinlock it is different. The spinlock is a very simple single-holder lock. If a process attempts to acquire a spinlock and it is unavailable, the process will keep trying (spinning) until it can acquire the lock. This simplicity creates a small and fast lock.
+
+	Like Mutex, there are two possible states in Spinlock: Locked or Unlocked.
+
+
+	If the kernel is running on a uniprocessor and CONFIG_SMP, CONFIG_PREEMPT aren’t enabled while compiling the kernel then spinlock will not be available. Because there is no reason to have a lock when no one else can run at the same time.
+
+	But if you have disabled CONFIG_SMP and enabled  CONFIG_PREEMPT then spinlock will simply disable preemption, which is sufficient to prevent any races.
+
+
+Initialize
+
+We can initialize Spinlock in Linux kernel in two ways.
+
+    Static Method
+    Dynamic Method
+
+Static Method:
+
+DEFINE_SPINLOCK(etx_spinlock);
+
+The macro given above will create a spinlock_t variable in the name of etx_spinlock and initialize to UNLOCKED STATE. Take a look at the expansion of DEFINE_SPINLOCK below.
+
+#define DEFINE_SPINLOCK(x)      spinlock_t x = __SPIN_LOCK_UNLOCKED(x)
+
+
+Dynamic Method:
+
+spinlock_t etx_spinlock;
+spin_lock_init(&etx_spinlock);
+
+
+Approach 1 (Locking between User context):
+
+	If you share data with user context (between Kernel Threads), then you can use this approach.
+
+Lock:
+
+		spin_lock(spinlock_t *lock)
+
+	This will take the lock if it is free, otherwise, it’ll spin until that lock is free (Keep trying).
+
+Try Lock:
+
+		spin_trylock(spinlock_t *lock)
+
+	Locks the spinlock if it is not already locked. If unable to obtain the lock it exits with an error and does not spin. It returns non-zero if it obtains the lock otherwise returns zero.
+
+Unlock:
+
+		spin_unlock(spinlock_t *lock)
+
+	It does the reverse of the lock. It will unlock which is locked by the above call.
+
+Checking Lock:
+
+		spin_is_locked(spinlock_t *lock)
+
+	This is used to check whether the lock is available or not. It returns non-zero if the lock is currently acquired. otherwise returns zero.
+
+
+eg.,
+
+//Thread 1
+int thread_function1(void *pv)
+{
+    while(!kthread_should_stop()) {
+        spin_lock(&etx_spinlock);
+        etx_global_variable++;
+        printk(KERN_INFO "In EmbeTronicX Thread Function1 %lu\n", etx_global_variable);
+        spin_unlock(&etx_spinlock);
+        msleep(1000);
+    }
+    return 0;
+}
+
+//Thread 2
+int thread_function2(void *pv)
+{   
+    while(!kthread_should_stop()) {
+        spin_lock(&etx_spinlock);
+        etx_global_variable++;
+        printk(KERN_INFO "In EmbeTronicX Thread Function2 %lu\n", etx_global_variable);
+        spin_unlock(&etx_spinlock);
+        msleep(1000);
+    }
+    return 0;
+}
+
+
+
+Approach 2 (Locking between Bottom Halves):
+
+If you want to share data between two different Bottom halves or the same bottom halves, then you can use Approach 1.
+
+
+
+
+Approach 3 (Locking between User context and Bottom Halves):
+
+	If you share data with a bottom half and user context (like Kernel Thread), then this approach will be useful.
+
+Lock:
+
+		spin_lock_bh(spinlock_t *lock)
+
+	It disables soft interrupts on that CPU, then grabs the lock. This has the effect of preventing softirqs, tasklets, and bottom halves from running on the local CPU. Here the suffix ‘_bh‘ refers to “Bottom Halves“.
+
+Unlock:
+
+		spin_unlock_bh(spinlock_t *lock)
+
+	It will release the lock and re-enables the soft interrupts which are disabled by the above call.
+
+
+eg.,
+//Thread
+int thread_function(void *pv)
+{
+    while(!kthread_should_stop()) {
+        spin_lock_bh(&etx_spinlock);
+        etx_global_variable++;
+        printk(KERN_INFO "In EmbeTronicX Thread Function %lu\n", etx_global_variable);
+        spin_unlock_bh(&etx_spinlock);
+        msleep(1000);
+    }
+    return 0;
+}
+/*Tasklet Function*/
+void tasklet_fn(unsigned long arg)
+{
+        spin_lock_bh(&etx_spinlock);
+        etx_global_variable++;
+        printk(KERN_INFO "Executing Tasklet Function : %lu\n", etx_global_variable);
+        spin_unlock_bh(&etx_spinlock);
+}
+
+
+Approach 4 (Locking between Hard IRQ and Bottom Halves):
+
+	If you share data between Hardware ISR and Bottom halves then you have to disable the IRQ before locking. Because the bottom halves processing can be interrupted by a hardware interrupt. So this will be used in that scenario.
+
+Lock:
+
+		spin_lock_irq(spinlock_t *lock)
+
+	This will disable interrupts on that CPU, then grab the lock.
+
+Unlock:
+
+		spin_unlock_irq(spinlock_t *lock)
+
+	It will release the lock and re-enables the interrupts which are disabled by the above call.
+
+
+eg.,
+/*Tasklet Function*/
+void tasklet_fn(unsigned long arg)
+{
+        spin_lock_irq(&etx_spinlock);
+        etx_global_variable++;
+        printk(KERN_INFO "Executing Tasklet Function : %lu\n", etx_global_variable);
+        spin_unlock_irq(&etx_spinlock);
+}
+
+//Interrupt handler for IRQ 11. 
+static irqreturn_t irq_handler(int irq,void *dev_id) {
+        spin_lock_irq(&etx_spinlock); 
+        etx_global_variable++;
+        printk(KERN_INFO "Executing ISR Function : %lu\n", etx_global_variable);
+        spin_unlock_irq(&etx_spinlock);
+        /*Scheduling Task to Tasklet*/
+        tasklet_schedule(tasklet); 
+        return IRQ_HANDLED;
+}
+
+
+
+
+
+Approach 5 (Alternative way of Approach 4):
+
+	If you want to use a different variant rather than using spin_lock_irq() and spin_unlock_irq() then you can use this approach.
+
+Lock:
+
+		spin_lock_irqsave( spinlock_t *lock, unsigned long flags );
+
+	This will save whether interrupts were on or off in a flags word and grab the lock.
+
+Unlock:
+
+		spin_unlock_irqrestore( spinlock_t *lock, unsigned long flags );
+
+	This will release the spinlock and restores the interrupts using the flags argument.
+
+
+Approach 6 (Locking between Hard IRQs):
+
+	If you want to share data between two different IRQs, then you should use Approach 5.
+
+
+
