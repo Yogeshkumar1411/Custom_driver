@@ -48,10 +48,10 @@ int thread_function_1(void *thread_num)
 	int t_num = *(int *)thread_num;
 	while(!kthread_should_stop())
 	{
-//		mutex_lock(&mutex_var);
+		mutex_lock(&mutex_var);
 		shared_var++;
 		pr_info("Hello from thread %d and shared var %d\n",t_num,shared_var);
-//		mutex_unlock(&mutex_var);
+		mutex_unlock(&mutex_var);
 		msleep(1000);
 	}
 	pr_info("Bye from thread %d\n",t_num);
@@ -67,10 +67,10 @@ int thread_function_2(void *thread_num)
 	int t_num = *(int *)thread_num;
 	while(!kthread_should_stop())
 	{
-//		mutex_lock(&mutex_var);
+		mutex_lock(&mutex_var);
 		shared_var++;
 		pr_info("Hello from thread %d and shared var %d\n",t_num,shared_var);
-//		mutex_unlock(&mutex_var);
+		mutex_unlock(&mutex_var);
 		msleep(1000);
 	}
 	pr_info("Bye from thread %d\n",t_num);
