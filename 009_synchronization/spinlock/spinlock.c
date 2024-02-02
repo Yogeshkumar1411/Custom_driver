@@ -17,6 +17,8 @@
 #define DEV_MEM_SIZE 512  // limit of this driver
 
 
+#define IRQ_NO 1
+
 #undef pr_fmt 
 #define pr_fmt(fmt) "%s:" fmt,__func__
 
@@ -43,6 +45,31 @@ spinlock_t spinlock_var;
 DEFINE_SPINLOCK(spinlock_var);
 
 
+/*tasklet*/
+void tasklet_fn(unsigned long);
+struct tasklet_struct *tasklet = NULL;
+
+void tasklet_fn(unsigned long value)
+{
+	pr_info("tasklet function\n");
+	spin_lock_bh(&spinlock_var);
+	shared_var++;
+	pr_info("Hello from tasklet and shared var %d\n",shared_var);
+	spin_unlock_bh(&spinlock_var);
+}
+
+
+
+static irqreturn_t irq_handler(int irq, void *dev_id)
+{
+	pr_info("Interrupt occurred\n");
+
+	tasklet_schedule(tasklet);
+
+	return IRQ_HANDLED;
+}
+
+
 
 /*kthread funcgtion*/
 int thread_function_1(void *thread_num)
@@ -55,7 +82,7 @@ int thread_function_1(void *thread_num)
 		{
 			pr_info("spinlock is not locked thread function\n");
 		}
-		spin_lock(&spinlock);
+		spin_lock(&spinlock_var);
 		if(spin_is_locked(&spinlock_var))
 		{
 			pr_info("spin is locked thread\n");
@@ -272,7 +299,6 @@ static int __init pcd_driver_init(void){
 		goto class_del;
 	}
 
-	mutex_init(&mutex_var);
 
 
 	ptr_kthread_1 = kthread_create(thread_function_1,&thread_1,"Thread excution 1");
@@ -295,13 +321,25 @@ static int __init pcd_driver_init(void){
 		goto device_del;
 	}
 	
-	
+
+	tasklet = kmalloc(sizeof(struct tasklet_struct),GFP_KERNEL);
+	if(tasklet==NULL)
+	{
+		pr_info("Csnnot allocate memory\n");
+		ret = PTR_ERR(tasklet);
+		goto irq;
+	}
+	tasklet_init(tasklet,tasklet_fn,0);
+
 
 	pr_info("Module init was successful\n");
 
 
 	return 0;
-	
+
+irq:
+		
+	free_irq(IRQ_NO,(void *)(irq_handler));
 	
 device_del:
 	device_destroy(class_pcd,device_number);
@@ -321,6 +359,12 @@ out:
 
 static void __exit pcd_driver_cleanup(void){
 
+	tasklet_kill(tasklet);
+	if(tasklet!=NULL)
+	{
+		kfree(tasklet);
+	}
+	free_irq(IRQ_NO,(void *)(irq_handler));
 	kthread_stop(ptr_kthread_1);
 	device_destroy(class_pcd,device_number);
 	class_destroy(class_pcd);

@@ -1,4 +1,4 @@
-obj-m:=mutex.o
+obj-m:=spinlock.o
 
 KDIR_HOST = /lib/modules/$(shell uname -r)/build/
 KDIR = /home/yogesh/Documents/rasperry_pi/linux/
